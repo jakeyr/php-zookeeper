@@ -277,24 +277,28 @@ static PHP_METHOD(Zookeeper, getChildren)
 }
 /* }}} */
 
+#define MAX_ZK_BUFFER_SIZE 1024*1024
+#define GET_BUFFER_SIZE 1024
+
 /* {{{ Zookeeper::get( .. )
    */
 static PHP_METHOD(Zookeeper, get)
 {
 	char *path;
+	const char *errstr;
 	int path_len;
 	zend_fcall_info fci = empty_fcall_info;
 	zend_fcall_info_cache fcc = empty_fcall_info_cache;
 	zval *stat_info = NULL;
 	php_cb_data_t *cb_data = NULL;
-	char buffer[512];
-	int buffer_len = 512;
+	char *buffer;
+	int buffer_len = GET_BUFFER_SIZE;
 	struct Stat stat;
 	int status = ZOK;
 	ZK_METHOD_INIT_VARS;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|f!z", &path, &path_len, &fci,
-							  &fcc, &stat_info) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|f!zl", &path, &path_len, &fci,
+							  &fcc, &stat_info, &buffer_len) == FAILURE) {
 		return;
 	}
 
@@ -303,19 +307,54 @@ static PHP_METHOD(Zookeeper, get)
 	if (fci.size != 0) {
 		cb_data = php_cb_data_new(&fci, &fcc, 1);
 	}
+
+	if (buffer_len > MAX_ZK_BUFFER_SIZE) buffer_len = MAX_ZK_BUFFER_SIZE;
+
+	buffer = malloc(sizeof(char)*buffer_len);
+
+	if (buffer == NULL)
+	{
+		errstr = strerror(errno);
+		goto fail;
+	}
+
 	status = zoo_wget(i_obj->zk, path, (fci.size != 0) ? php_zk_watcher_marshal : NULL,
 					  cb_data, buffer, &buffer_len, &stat);
+
 	if (status != ZOK) {
-		php_cb_data_destroy(&cb_data);
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "error: %s", zerror(status));
-		return;
+		errstr = zerror(status);
+		goto fail;
+	}
+
+	// were we able to fit the response into our allocated buffer?
+	// if not, realloc and re-wget
+	//
+	if ((stat.dataLength + 1) > GET_BUFFER_SIZE)
+	{
+		buffer_len = stat.dataLength;
+		buffer = realloc(buffer, stat.dataLength + 1);
+		status = zoo_wget(i_obj->zk, path, NULL, NULL, buffer, &buffer_len, NULL);
+	}
+
+	if (status != ZOK) {
+		errstr = zerror(status);
+		goto fail;
 	}
 
 	if (stat_info) {
 		zval_dtor(stat_info);
 		php_stat_to_array(&stat, stat_info);
 	}
-	RETURN_STRINGL(buffer, buffer_len, 1);
+
+	RETVAL_STRINGL(buffer, buffer_len, 1);
+	free(buffer);
+	return;
+
+	fail:
+	php_cb_data_destroy(&cb_data);
+	php_error_docref(NULL TSRMLS_CC, E_WARNING, "error: %s", zerror(status));
+	if (buffer) free(buffer);
+	return;
 }
 /* }}} */
 

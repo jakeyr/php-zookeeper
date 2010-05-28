@@ -1,5 +1,16 @@
 zookeeper extension changelog
 
+Version 0.1.2
+-------------
+
+Version 0.1.1
+-------------
+808320072729d380c6776c0b41f2456a256a0868 Made "version" an actual optional parameter to set() (defaults to -1)
+e8114d1e30239f6bccf9102cd33bfbf0cde4e982 Some minor changes:
+4bb7f2b1de3db9c54776494e4457b600c4270f29 Adding delete function
+453f1d568c23a3b9543974691de17abe4298e775 Adding some files to .gitignore
+4a30ae772c0cded875c36c2a16b64feeec10c9f0 Look for Macports libzookeeper too.
+
 Version 0.1.0
 -------------
 	* Initial release

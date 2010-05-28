@@ -17,8 +17,16 @@ class Zookeeper {
 
 	public function set( $path, $data, $version = -1, &$stat = null ) {}
 	
-	public function get( $path, $watcher_cb = null, &$stat = null) {}
-
+	/**
+	 * gets the data associated with the specified znode path
+	 * 
+	 * by default, this function will fetch 1024 bytes and reallocate and refetch if the 
+	 * data size is larger.  if you are concerned about performance, consider setting
+	 * maxLen to a large enough number to allocate a big enough buffer.
+	 * 
+	 */
+	public function get( $path, $watcher_cb = null, &$stat = null, $maxLen = 1024) {}
+	
 	public function getChildren( $path, $watcher_cb = null ) {}
 
 	public function exists( $path, $watcher_cb = null ) {}
